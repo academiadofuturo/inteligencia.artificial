@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<!--<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Interativo | IA na Academia do Futuro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Calm Harmony (Background: #F8FAFC, Text: #0F172A, Accents: #4FD1C5, #F6AD55) -->
+    <!-- Application Structure Plan: A single-page application with a top navigation bar for quick access to thematic sections: Visão Geral (introduction), Aplicações (interactive cards for each AI use case), Plano de Ação (visual step-by-step guide), and Simulador de Impacto (interactive chart). This structure transforms the linear report into an exploratory tool, allowing users to dive into specific areas of interest non-linearly, which is more engaging and user-friendly for busy team members. -->
+    <!-- Visualization & Content Choices:
+        - Report Intro/Conclusion -> Goal: Inform -> Presentation: Static text in 'Visão Geral' section -> Justification: Provides immediate context upon landing.
+        - Key Application Areas -> Goal: Organize/Inform -> Presentation: Grid of interactive cards with expand/collapse details -> Interaction: Click to reveal info -> Justification: Breaks down complex info into digestible, user-controlled chunks.
+        - How to Start Steps -> Goal: Organize/Guide -> Presentation: Styled HTML/CSS step-by-step list in 'Plano de Ação' -> Interaction: Hover effects -> Justification: Presents a clear, actionable process.
+        - Implied Data (e.g., engagement boost) -> Goal: Compare/Demonstrate Change -> Viz: Interactive Bar Chart (Chart.js/Canvas) in 'Simulador de Impacto' -> Interaction: Buttons to update chart data -> Justification: Visually quantifies the potential benefits of AI, making the business case more compelling. Library: Chart.js for its simplicity and responsiveness.
+        - Gemini API Integration:
+            - Mentorship Script Generation (Personalização): Goal: Generate content -> Presentation: Text output in card -> Interaction: Button click to call LLM -> Justification: Demonstrates practical content generation for personalized learning.
+            - Social Media Post Draft (Comunicação): Goal: Generate content -> Presentation: Text output in card -> Interaction: Button click to call LLM -> Justification: Shows how AI can assist in marketing and communication efforts.
+        -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F8FAFC;
+            color: #0F172A;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        .nav-link {
+            transition: color 0.3s, border-bottom-color 0.3s;
+        }
+        .nav-link:hover {
+            color: #14B8A6;
+        }
+        .nav-link.active {
+            color: #14B8A6;
+            font-weight: 600;
+        }
+        .card {
+            transition: transform 0.3s, box-shadow 0.3s;
+            cursor: pointer;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .card-content {
+            display: none;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.7s ease-in-out;
+        }
+        .card.open .card-content {
+            display: block;
+            max-height: 1000px;
+        }
+        .action-step {
+            transition: background-color 0.3s;
+        }
+        .action-step:hover {
+            background-color: #f0fdfa;
+        }
+        .llm-output {
+            background-color: #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .loading-spinner {
+            border: 4px solid rgba(0, 0, 0, .1);
+            border-left-color: #14B8A6;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <header class="bg-white/80 backdrop-blur-lg sticky top-0 z-50 shadow-sm">
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="text-2xl font-bold text-slate-800">
+                Academia do Futuro <span class="text-teal-500">_IA</span>
+            </div>
+            <div class="hidden md:flex space-x-8">
+                <a href="#overview" class="nav-link text-slate-600">Visão Geral</a>
+                <a href="#applications" class="nav-link text-slate-600">Aplicações</a>
+                <a href="#action-plan" class="nav-link text-slate-600">Plano de Ação</a>
+                <a href="#simulator" class="nav-link text-slate-600">Simulador</a>
+            </div>
+            <button id="mobile-menu-button" class="md:hidden text-slate-800">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+            </button>
+        </nav>
+        <div id="mobile-menu" class="hidden md:hidden px-6 pb-4">
+            <a href="#overview" class="block py-2 nav-link text-slate-600">Visão Geral</a>
+            <a href="#applications" class="block py-2 nav-link text-slate-600">Aplicações</a>
+            <a href="#action-plan" class="block py-2 nav-link text-slate-600">Plano de Ação</a>
+            <a href="#simulator" class="block py-2 nav-link text-slate-600">Simulador</a>
+        </div>
+    </header>
+
+    <main>
+        <section id="overview" class="py-16 md:py-24">
+            <div class="container mx-auto px-6 text-center">
+                <h1 class="text-4xl md:text-6xl font-extrabold text-slate-900 leading-tight">
+                    Potencialize o Empreendedorismo Jovem com <span class="text-transparent bg-clip-text bg-gradient-to-r from-teal-500 to-cyan-500">Inteligência Artificial</span>
+                </h1>
+                <p class="mt-6 max-w-3xl mx-auto text-lg md:text-xl text-slate-600">
+                    Esta é uma exploração interativa de como a IA pode transformar a Academia do Futuro. Navegue pelas seções para descobrir como podemos personalizar o aprendizado, otimizar eventos e tomar decisões mais inteligentes para ampliar nosso impacto.
+                </p>
+                <div class="mt-10">
+                    <a href="#applications" class="bg-teal-500 text-white font-bold py-3 px-8 rounded-full hover:bg-teal-600 transition-colors">Comece a Explorar</a>
+                </div>
+            </div>
+        </section>
+
+        <section id="applications" class="py-16 md:py-24 bg-slate-50">
+            <div class="container mx-auto px-6">
+                <div class="text-center mb-12">
+                    <h2 class="text-3xl md:text-4xl font-bold text-slate-900">Áreas-Chave de Aplicação</h2>
+                    <p class="mt-4 max-w-2xl mx-auto text-lg text-slate-600">A IA pode ser uma aliada poderosa em diversas frentes. Clique em cada cartão para ver como podemos aplicar essa tecnologia na prática e os benefícios esperados.</p>
+                </div>
+                <div id="applications-grid" class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                </div>
+            </div>
+        </section>
+
+        <section id="action-plan" class="py-16 md:py-24">
+            <div class="container mx-auto px-6">
+                <div class="text-center mb-12">
+                    <h2 class="text-3xl md:text-4xl font-bold text-slate-900">Nosso Plano de Ação</h2>
+                    <p class="mt-4 max-w-2xl mx-auto text-lg text-slate-600">A adoção da IA deve ser um processo estratégico e gradual. Apresentamos um plano de 5 passos para uma implementação bem-sucedida e ética.</p>
+                </div>
+                <div id="action-plan-list" class="max-w-4xl mx-auto space-y-6">
+                </div>
+            </div>
+        </section>
+        
+        <section id="simulator" class="py-16 md:py-24 bg-slate-50">
+            <div class="container mx-auto px-6">
+                <div class="text-center mb-12">
+                    <h2 class="text-3xl md:text-4xl font-bold text-slate-900">Simulador de Impacto</h2>
+                    <p class="mt-4 max-w-2xl mx-auto text-lg text-slate-600">Visualize o potencial da IA. Selecione uma métrica para ver uma comparação estimada do desempenho com e sem a aplicação de tecnologias inteligentes.</p>
+                </div>
+                <div class="flex justify-center space-x-4 mb-8">
+                    <button id="btn-engagement" class="bg-teal-500 text-white font-semibold py-2 px-6 rounded-full transition-colors">Engajamento</button>
+                    <button id="btn-optimization" class="bg-slate-200 text-slate-700 font-semibold py-2 px-6 rounded-full transition-colors">Otimização de Tempo</button>
+                </div>
+                <div class="chart-container">
+                    <canvas id="impactChart"></canvas>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <footer class="bg-slate-800 text-slate-400 py-8">
+        <div class="container mx-auto px-6 text-center">
+            <p>&copy; 2025 Academia do Futuro. Potencializado por IA para inspirar a próxima geração.</p>
+        </div>
+    </footer>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    const applicationsData = [
+        { 
+            icon: '🎯', 
+            title: 'Personalização da Experiência', 
+            description: 'Criação de jornadas de aprendizado sob medida para cada jovem, aumentando o engajamento e a retenção.',
+            details: {
+                'Como': 'Utilizando algoritmos para analisar interesses e progresso, recomendando conteúdos, palestras e trilhas de desenvolvimento adaptativas.',
+                'Exemplo Prático': 'Um jovem interessado em tecnologia recebe sugestões de workshops de programação, enquanto outro, focado em liderança, é direcionado para dinâmicas de gestão.'
+            },
+            llmFeature: {
+                buttonText: 'Gerar Ideias de Roteiro de Mentoria ✨',
+                prompt: (youthInterest) => `Gerar um roteiro breve para uma sessão de mentoria individual focada em um jovem de 11 a 17 anos com interesse em ${youthInterest}. Incluir 3-4 tópicos principais de discussão e uma atividade prática.`,
+                defaultInput: 'iniciar um negócio de tecnologia',
+                outputId: 'mentorship-script-output'
+            }
+        },
+        { 
+            icon: '🗓️', 
+            title: 'Otimização de Eventos', 
+            description: 'Simplifica a gestão e aumenta a eficácia de palestras, acampamentos e outras atividades.',
+            details: {
+                'Como': 'Analisando dados históricos para prever o engajamento em temas, automatizando inscrições, e gerenciando a logística de forma inteligente.',
+                'Exemplo Prático': 'IA indica que temas de "marketing digital" têm 30% mais adesão, ajudando a priorizar a programação de futuros eventos.'
+            }
+        },
+        { 
+            icon: '💬', 
+            title: 'Comunicação e Engajamento', 
+            description: 'Aprimora a forma como a Academia se comunica com jovens, pais e parceiros, de forma escalável.',
+            details: {
+                'Como': 'Implementando chatbots para responder dúvidas frequentes 24/7 e usando IA para gerar e otimizar conteúdo para redes sociais.',
+                'Exemplo Prático': 'Um chatbot no site responde 80% das perguntas sobre inscrições, liberando a equipe para interações mais estratégicas.'
+            },
+            llmFeature: {
+                buttonText: 'Rascunhar Mensagem de Divulgação ✨',
+                prompt: (eventType) => `Rascunhar uma breve mensagem para redes sociais (Instagram/TikTok) para divulgar um ${eventType} da Academia do Futuro. O foco é atrair jovens de 11 a 17 anos para desenvolver empreendedorismo. Incluir emojis e call-to-action.`,
+                defaultInput: 'evento de empreendedorismo digital',
+                outputId: 'social-media-post-output'
+            }
+        },
+        { 
+            icon: '🤝', 
+            title: 'Captação de Recursos', 
+            description: 'Otimiza a busca por apoio financeiro e estratégico, identificando os parceiros mais alinhados.',
+            details: {
+                'Como': 'Analisando bancos de dados públicos para encontrar empresas que investem em pautas de juventude e empreendedorismo, e otimizando textos de propostas.',
+                'Exemplo Prático': 'A IA gera uma lista de 10 potenciais patrocinadores com base em seus investimentos sociais recentes e perfis de interesse.'
+            }
+        },
+        { 
+            icon: '📈', 
+            title: 'Gestão e Análise de Dados', 
+            description: 'Transforma dados brutos em insights acionáveis para tomadas de decisão mais inteligentes.',
+            details: {
+                'Como': 'Processando dados de participação e feedback para gerar relatórios de impacto e painéis de visualização de desempenho.',
+                'Exemplo Prático': 'Um dashboard mostra em tempo real o crescimento das habilidades dos participantes, comprovando o impacto da organização para doadores.'
+            }
+        }
+    ];
+
+    const actionPlanData = [
+        {
+            title: 'Definir Objetivos Claros',
+            description: 'Identificar o problema específico que a IA resolverá primeiro. Começar com um projeto piloto focado, como "reduzir o tempo de resposta a dúvidas".'
+        },
+        {
+            title: 'Escolher as Ferramentas Certas',
+            description: 'Pesquisar e selecionar ferramentas de IA acessíveis (muitas com planos gratuitos ou com desconto para ONGs) e de fácil implementação.'
+        },
+        {
+            title: 'Capacitar a Equipe',
+            description: 'Investir em treinamentos básicos sobre o que é IA e como as ferramentas funcionam. Incentivar a experimentação e a cultura de dados.'
+        },
+        {
+            title: 'Começar Pequeno e Escalar',
+            description: 'Não tentar implementar tudo de uma vez. Iniciar com uma aplicação e, com base nos aprendizados, expandir para outras áreas gradualmente.'
+        },
+        {
+            title: 'Priorizar Ética e Privacidade',
+            description: 'Garantir total transparência no uso de dados e cumprir rigorosamente a LGPD. O uso da IA deve ser sempre justo e não-discriminatório.'
+        }
+    ];
+
+    const applicationsGrid = document.getElementById('applications-grid');
+    applicationsData.forEach((app, index) => {
+        const card = document.createElement('div');
+        card.className = 'card bg-white rounded-xl shadow-md p-6';
+        let llmButtonHtml = '';
+        if (app.llmFeature) {
+            llmButtonHtml = `
+                <div class="mt-4">
+                    <input type="text" id="llm-input-${index}" class="w-full p-2 border border-slate-300 rounded-md text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="${app.llmFeature.defaultInput}">
+                    <button id="llm-button-${index}" class="mt-3 bg-teal-500 text-white font-bold py-2 px-4 rounded-full hover:bg-teal-600 transition-colors w-full flex items-center justify-center">
+                        <span id="llm-button-text-${index}">${app.llmFeature.buttonText}</span>
+                        <div id="llm-loading-${index}" class="loading-spinner ml-2 hidden"></div>
+                    </button>
+                    <div id="${app.llmFeature.outputId}" class="llm-output hidden mt-4"></div>
+                </div>
+            `;
+        }
+
+        card.innerHTML = `
+            <div class="flex items-start justify-between">
+                <div>
+                    <div class="text-4xl mb-4">${app.icon}</div>
+                    <h3 class="text-xl font-bold text-slate-800">${app.title}</h3>
+                    <p class="text-slate-500 mt-2">${app.description}</p>
+                </div>
+                <div class="text-teal-500 text-2xl font-bold transform transition-transform duration-500">&#x2B;</div>
+            </div>
+            <div class="card-content mt-4 border-t pt-4">
+                <h4 class="font-bold text-slate-700">Como funciona:</h4>
+                <p class="text-slate-600 mb-3">${app.details['Como']}</p>
+                <h4 class="font-bold text-slate-700">Exemplo prático:</h4>
+                <p class="text-slate-600">${app.details['Exemplo Prático']}</p>
+                ${llmButtonHtml}
+            </div>
+        `;
+        
+        card.addEventListener('click', (event) => {
+            // Prevent card click from expanding/collapsing if LLM button/input is clicked
+            if (event.target.closest('button') || event.target.closest('input')) {
+                return;
+            }
+            card.classList.toggle('open');
+            const icon = card.querySelector('.text-2xl.font-bold');
+            if (card.classList.contains('open')) {
+                icon.innerHTML = '&#x2212;'; // Minus sign
+                icon.classList.add('rotate-180');
+            } else {
+                icon.innerHTML = '&#x2B;'; // Plus sign
+                icon.classList.remove('rotate-180');
+            }
+        });
+
+        if (app.llmFeature) {
+            const llmButton = card.querySelector(`#llm-button-${index}`);
+            const llmInput = card.querySelector(`#llm-input-${index}`);
+            const llmOutput = card.querySelector(`#${app.llmFeature.outputId}`);
+            const llmLoading = card.querySelector(`#llm-loading-${index}`);
+            const llmButtonText = card.querySelector(`#llm-button-text-${index}`);
+
+            llmButton.addEventListener('click', async () => {
+                const inputValue = llmInput.value || llmInput.placeholder;
+                const prompt = app.llmFeature.prompt(inputValue);
+                
+                llmOutput.textContent = '';
+                llmOutput.classList.add('hidden');
+                llmLoading.classList.remove('hidden');
+                llmButtonText.classList.add('hidden');
+                llmButton.disabled = true;
+
+                try {
+                    const chatHistory = [];
+                    chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                    const payload = { contents: chatHistory };
+                    const apiKey = "";
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                    
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        const text = result.candidates[0].content.parts[0].text;
+                        llmOutput.textContent = text;
+                        llmOutput.classList.remove('hidden');
+                    } else {
+                        llmOutput.textContent = 'Erro ao gerar conteúdo. Tente novamente.';
+                        llmOutput.classList.remove('hidden');
+                    }
+                } catch (error) {
+                    llmOutput.textContent = `Erro: ${error.message}. Verifique a conexão ou tente novamente.`;
+                    llmOutput.classList.remove('hidden');
+                    console.error('Erro na chamada da API Gemini:', error);
+                } finally {
+                    llmLoading.classList.add('hidden');
+                    llmButtonText.classList.remove('hidden');
+                    llmButton.disabled = false;
+                }
+            });
+        }
+        applicationsGrid.appendChild(card);
+    });
+
+    const actionPlanList = document.getElementById('action-plan-list');
+    actionPlanData.forEach((step, index) => {
+        const stepEl = document.createElement('div');
+        stepEl.className = 'action-step bg-white rounded-lg p-6 flex items-start space-x-6 border';
+        stepEl.innerHTML = `
+            <div>
+                <span class="flex items-center justify-center w-12 h-12 rounded-full bg-teal-100 text-teal-600 font-bold text-xl">${index + 1}</span>
+            </div>
+            <div>
+                <h3 class="text-xl font-bold text-slate-800">${step.title}</h3>
+                <p class="text-slate-600 mt-1">${step.description}</p>
+            </div>
+        `;
+        actionPlanList.appendChild(stepEl);
+    });
+
+    const ctx = document.getElementById('impactChart').getContext('2d');
+    const chartData = {
+        engagement: {
+            labels: ['Palestras', 'Workshops', 'Acampamentos', 'Corridas'],
+            datasets: [
+                {
+                    label: 'Engajamento Sem IA',
+                    data: [65, 59, 80, 71],
+                    backgroundColor: 'rgba(148, 163, 184, 0.6)',
+                    borderColor: 'rgba(148, 163, 184, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Engajamento Com IA',
+                    data: [85, 78, 92, 81],
+                    backgroundColor: 'rgba(20, 184, 166, 0.6)',
+                    borderColor: 'rgba(20, 184, 166, 1)',
+                    borderWidth: 1
+                }
+            ]
+        },
+        optimization: {
+            labels: ['Gestão de Inscrições', 'Criação de Conteúdo', 'Análise de Feedback', 'Comunicação'],
+            datasets: [
+                {
+                    label: 'Horas Manuais / Mês',
+                    data: [20, 15, 25, 30],
+                    backgroundColor: 'rgba(148, 163, 184, 0.6)',
+                    borderColor: 'rgba(148, 163, 184, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Horas com IA / Mês',
+                    data: [5, 6, 8, 10],
+                    backgroundColor: 'rgba(246, 173, 85, 0.6)',
+                    borderColor: 'rgba(246, 173, 85, 1)',
+                    borderWidth: 1
+                }
+            ]
+        }
+    };
+
+    let impactChart = new Chart(ctx, {
+        type: 'bar',
+        data: chartData.engagement,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Nível de Engajamento (%)'
+                    }
+                }
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Aumento de Engajamento com Recomendações Personalizadas',
+                    font: {
+                        size: 16
+                    },
+                    padding: {
+                        top: 10,
+                        bottom: 20
+                    }
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                }
+            }
+        }
+    });
+
+    const btnEngagement = document.getElementById('btn-engagement');
+    const btnOptimization = document.getElementById('btn-optimization');
+
+    function updateChart(dataType) {
+        let newData, newOptions;
+        if (dataType === 'engagement') {
+            newData = chartData.engagement;
+            newOptions = {
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Aumento de Engajamento com Recomendações Personalizadas',
+                        font: { size: 16 },
+                        padding: { top: 10, bottom: 20 }
+                    }
+                },
+                scales: { y: { beginAtZero: true, title: { display: true, text: 'Nível de Engajamento (%)' } } }
+            };
+            btnEngagement.classList.replace('bg-slate-200', 'bg-teal-500');
+            btnEngagement.classList.replace('text-slate-700', 'text-white');
+            btnOptimization.classList.replace('bg-teal-500', 'bg-slate-200');
+            btnOptimization.classList.replace('text-white', 'text-slate-700');
+
+        } else {
+            newData = chartData.optimization;
+            newOptions = {
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Redução de Tempo em Tarefas Administrativas',
+                        font: { size: 16 },
+                        padding: { top: 10, bottom: 20 }
+                    }
+                },
+                scales: { y: { beginAtZero: true, title: { display: true, text: 'Horas de Trabalho por Mês' } } }
+            };
+            btnOptimization.classList.replace('bg-slate-200', 'bg-teal-500');
+            btnOptimization.classList.replace('text-slate-700', 'text-white');
+            btnEngagement.classList.replace('bg-teal-500', 'bg-slate-200');
+            btnEngagement.classList.replace('text-white', 'text-slate-700');
+        }
+        
+        impactChart.data = newData;
+        impactChart.options.plugins.title = newOptions.plugins.title;
+        impactChart.options.scales.y = newOptions.scales.y;
+        impactChart.update();
+    }
+    
+    btnEngagement.addEventListener('click', () => updateChart('engagement'));
+    btnOptimization.addEventListener('click', () => updateChart('optimization'));
+    
+    const mobileMenuButton = document.getElementById('mobile-menu-button');
+    const mobileMenu = document.getElementById('mobile-menu');
+    mobileMenuButton.addEventListener('click', () => {
+        mobileMenu.classList.toggle('hidden');
+    });
+
+    const navLinks = document.querySelectorAll('.nav-link');
+    const sections = document.querySelectorAll('main section');
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                navLinks.forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href').substring(1) === entry.target.id) {
+                        link.classList.add('active');
+                    }
+                });
+            }
+        });
+    }, { threshold: 0.5 });
+
+    sections.forEach(section => {
+        observer.observe(section);
+    });
+});
+</script>
+</body>
+</html>
+ -->
+</html>
